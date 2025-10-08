@@ -1563,9 +1563,6 @@ setTimeout(()=>{
 	 }
 },200)
 	 
-
-	 
-
 	 	setTimeout(()=>{
 			var addq = document.getElementById("addq");
 			var addtdo = document.getElementById("addtdo");
@@ -2104,7 +2101,7 @@ function getcategs(){
     	if (change.type === "added") {
     		catlist.innerHTML+=
 				`
-				<p class="catr" id="c`+change.doc.data().catid+`" onclick="getQuotes(null,'`+change.doc.data().name+`');">`+change.doc.data().name+`<span class="decat" onclick="event.stopPropagation(); deletecateg('`+change.doc.data().catid+`')">x</span></p>
+				<p class="catr" id="c`+change.doc.data().catid+`" onclick="loadclickedQuotes(null,'`+change.doc.data().name+`','');">`+change.doc.data().name+`<span class="decat" onclick="event.stopPropagation(); deletecateg('`+change.doc.data().catid+`')">x</span></p>
 
 				`
     	}
@@ -2241,37 +2238,48 @@ function readallqcat(ident){
 }
 
 
+function loadNextQuoteBatch(lastdivindex){
+	
 
-function getQuotes(quotetype,quotecateg){
+}
+
+var quotetypevar = null;
+var quotecategvar = null;
+
+
+function getQuotes(quotetype,quotecateg,doctoloadfrm){
+		quotetypevar = quotetype;
+		quotecategvar = quotecateg;
 		var wrapper1 = document.getElementById("wrapper1");
 		var testing = document.getElementById("testing");
 		let useidlogged = firebase.auth().currentUser.uid;
-		wrapper1.innerHTML="";
+		//wrapper1.innerHTML="";
 		var wrapper1sort = document.getElementById("wrapper1sort");
 		wrapper1sort.style.display="none";
 		wrapper1.style.display="block";
 		let query = db.collection("myQuotes").where("userid","==",useidlogged);
+
 		let filterclause = null;
 
-		if(quotecateg == null){
-			if(quotetype == "" || quotetype == null){
+		if(quotecategvar == null){
+			if(quotetypevar == "" || quotetypevar == null){
 				filterclause = query;
 				}else{
 					filterclause = query.where("qtype","==",quotetype);
 				}
 		}else{
-			filterclause = query.where("cat","==",quotecateg);
+			filterclause = query.where("cat","==",quotecategvar);
 		}
 
+		let filterandordered = filterclause.orderBy("indexid","desc");
 		
-		
-	 	filterclause.orderBy("indexid","desc").limit(10).onSnapshot(function(querySnapshot) {
+	 	filterandordered.startAfter(doctoloadfrm).limit(10).onSnapshot(function(querySnapshot) {
+
 	    querySnapshot.docChanges().forEach(function(change){
+	    	//console.log(change.doc.data());
+
 
 	    		if (change.type === "added") {
-	    			const elementToObserve = document.querySelector('.my-element');
-					//observer.observe(elementToObserve);
-
 
 	    				//creating a substring where there is a long string
 		    			if(change.doc.data().qtype == "quote"){
@@ -2422,7 +2430,7 @@ function getQuotes(quotetype,quotecateg){
 											</div>
 										</div>
 									`;
-
+									
 		            }
 
 		            if(addednewdoc == true){
@@ -2490,14 +2498,64 @@ function getQuotes(quotetype,quotecateg){
 	 				wrapper1.removeChild(select);
 	            }  
 
-		displaycomments(change.doc.data().identity);
+			displaycomments(change.doc.data().identity);
 
-	    });	    						
+	    });	
+
+		var lastdoctrack = "";
+
+		function scrollHandler(){
+			   if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 400) {
+		    	var wrapper = document.getElementById("wrapper1");
+
+				var wrapperchildren = wrapper.children;
+				let lastdocument = wrapperchildren[wrapperchildren.length-1].id.substring(2);
+				let getlastdc = db.collection("myQuotes").doc(lastdocument);
+
+				getlastdc.get().then(lastdoc=>{
+					var thelastdoc = "";
+					if (lastdoc.exists) {
+						var lastdocumentdata = lastdoc.data();
+
+						//getQuotes(quotetype,quotecateg,doctoloadfrm);
+						if(lastdoctrack !== lastdoc.data().identity){
+							thelastdoc = lastdoc;
+							getQuotes(quotetypevar,quotecategvar,thelastdoc);
+						}
+
+						lastdoctrack = lastdocument;
+						
+				    } else {
+				        console.log("No such document!");
+				    }
+				});
+		    	
+		    }
+
+		}	
+
+		if (!window.scrollEventAdded) {
+		    window.addEventListener("scroll", scrollHandler);
+		    window.scrollEventAdded = true;
+		}
+
+		/*
+	    window.addEventListener("scroll", () => {	    	
+		 
+		}); 
+		*/
+	     						
 	  
 	});
 
 }
 
+
+function loadclickedQuotes(quotetype,quotecateg,doctoloadfrm){
+	document.getElementById("wrapper1").innerHTML = "";
+	getQuotes(quotetype,quotecateg,doctoloadfrm);
+
+}
 
 function displaycomments(quoteid){
 		    var refcomm = db.collection("comments").where("quoteid", "==", quoteid).onSnapshot(function(querySnapshot){
